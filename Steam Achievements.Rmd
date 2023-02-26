@@ -1,30 +1,16 @@
 ---
 title: "Steam Achievements Tracker"
-output: 
+output:
   flexdashboard::flex_dashboard:
+    theme:
+      primary: "#336699"
+      base_font:
+        google: Prompt
+      code_font:
+        google: JetBrains Mono
     orientation: rows
 runtime: shiny
 ---
-
-
-```{r}
-# ---
-# title: "Themed dashboard"
-# output: 
-#   flexdashboard::flex_dashboard:
-#     theme:
-#       bg: "#101010"
-#       fg: "#FDF7F7" 
-#       primary: "lightblue"
-#       base_font:
-#         google: Prompt
-#       code_font:
-#         google: JetBrains Mono
-#     orientation: columns
-#     vertical_layout: fill
-# runtime: shiny
-# ---
-```
 
 ```{r}
 library(glue)
@@ -39,6 +25,9 @@ library(purrr)
 library(flexdashboard)
 library(shiny)
 library(DT)
+      # bg: "#330033"
+      # fg: "white"
+      # primary: "#99cccc"
 ```
 
 ```{r}
@@ -299,7 +288,7 @@ list_game_rec <- reactive({
     transmute(
       Game = game,
       Achievement = apiname,
-      `Global % Achieved` = glue("{round(percent, 2)}%"),
+      `% of users with achievement` = glue("{round(percent, 2)}%"),
       rec,
       percent
     )
@@ -324,6 +313,9 @@ list_game_rec <- reactive({
     formatStyle(
       'rec',
       target = "row",
+      # color = "black",
+      # color = styleEqual(c(0, 1),c("black", "black")),
+      # backgroundColor = styleEqual(c(0, 1), c('pink', 'lightgreen'))
       backgroundColor = styleEqual(c(0, 1), c('#ffe6e6', '#ccffcc'))
 )
 
@@ -363,7 +355,7 @@ renderDataTable({
 ```
 
 
-Row {data-height=650}
+Row {data-height=550}
 -----------------------------------------------------------------------
 
 ### Timestamp of user's unlocked achievements by global percentage achieved
@@ -396,7 +388,7 @@ renderPlotly ({
 
 ```
 
-Row {data-height=350}
+Row {data-height=450}
 -----------------------------------------------------------------------
 
 ### Achievements to aim for next
@@ -409,8 +401,8 @@ DT::renderDataTable({
 
 Row {data-height=35}
 -----------------------------------------------------------------------
-Green achievements are easier than other achievements the user has already unlocked for a particular game
+<span style="color: #33cc00;">Green Achievements </span> are easier than other achievements the user has already unlocked for a particular game. 
 
-Row {data-height=50}
+Row {data-height=35}
 -----------------------------------------------------------------------
-Red achievements are more difficult than all achievements the user has already unlocked for that game
+<span style="color: #ff6666;">Red Achievements </span> are more difficult than any the user has already unlocked for that game.
