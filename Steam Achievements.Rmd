@@ -13,21 +13,19 @@ runtime: shiny
 ---
 
 ```{r}
-library(glue)
 library(rjson)
-library(dplyr)
 library(data.table)
-library(lubridate)
-library(ggplot2)
-library(plotly)
-library(viridis)
+library(glue)
+library(dplyr)
 library(purrr)
+library(lubridate)
+
+library(DT)
+library(ggplot2)
+library(viridis)
+library(plotly)
 library(flexdashboard)
 library(shiny)
-library(DT)
-      # bg: "#330033"
-      # fg: "white"
-      # primary: "#99cccc"
 ```
 
 ```{r}
@@ -36,10 +34,8 @@ library(DT)
 # https://steamapi.xpaw.me/#
 # https://partner.steamgames.com/doc/features/achievements#global_stats
 
-# user_steam_id <- "76561198041360303" # Emerson
-# user_steam_id <- "76561198084220408" # Sade
+user_key <- read.table("my_key.txt") %>% unlist()
 
-user_key <- ""
 ```
 
 ```{r}
@@ -51,7 +47,7 @@ get_user_games <- function(steam_id, key = user_key, format = "JSON"){
     fromJSON() %>% 
     suppressWarnings()
   
-  user_games_df <- rbindlist(user_games_json$response$games,fill = TRUE)
+  user_games_df <- rbindlist(user_games_json$response$games, fill = TRUE)
   
   inputs <- user_games_df %>% 
     select(
@@ -62,8 +58,6 @@ get_user_games <- function(steam_id, key = user_key, format = "JSON"){
   
   inputs
 }
-
-
 ```
 
 ```{r}
@@ -117,9 +111,6 @@ get_game_df <- function(game_id, name, key = user_key, steam_id, format = "JSON"
   
   if(exists("final_df")){return(final_df)}
 }
-
-# vsd <- get_game_df(game_id = "1794680", name = "Vampire Survivors")
-# pd <-  get_game_df(game_id = "400", name = "Portal")
 ```
 
 ```{r}
@@ -154,39 +145,6 @@ get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 
   df_final
 }
 ```
-
-```{r}
-# steam_id = "76561198041360303"
-# # steam_id <- "76561198084220408" # Sade
-# format = "JSON"
-# game_input <- "Hollow Knight"
-# # 
-# # 
-# # 
-# df_ex <- get_steam_data(steam_id = "76561198041360303", key = "", format = "JSON")
-
-
-
-
-  
-# ggplot(df_plot %>%
-  #          filter(unlocktime_dt >= "2020-01-01" &
-  #                   achieved == 1)) +
-  #   geom_point(aes(x = unlocktime_dt,
-  #                  y = percent,
-  #                  color = game,
-  #                  text = glue("{game}
-  #                             Achievement: {apiname}
-  #                             Unlocked: {unlocktime_dt}
-  #                             % with achievement: {round(percent)}%"))) +
-  #   scale_color_viridis(discrete = TRUE, option = "H") +
-  #   theme_minimal() +
-  #   xlab("Date user unlocked achievement") +
-  #   ylab("% of Steam users with achievement") +
-  #   labs("")
-```
-
-
 
 Inputs {.sidebar}
 -----------------------------------------------------------------------
@@ -269,18 +227,27 @@ list_games_ex <- reactive({
 ```{r}
 list_game_rec <- reactive({
   
+  # get most difficult achievement per game
+  min_ach_per_game <- df_plot_f() %>% 
+    filter(.data$achieved == 1) %>% 
+    group_by(.data$game) %>% 
+    mutate(
+      min_ach_percent = min(.data$percent)
+    ) %>% 
+    ungroup() %>% 
+    select(
+      game = .data$game,
+      min_ach_percent
+    ) %>% unique()
+  
   # choose achievements to recommend
   df_gr <- df_plot_f() %>%
-    filter(.data$achieved == 0) %>% 
-    group_by(.data$game, .data$achieved) %>%
-    mutate(
-      min_percent_ul = min(.data$percent)
-      ) %>%
-    ungroup() %>%
+    left_join(min_ach_per_game, by = "game") %>% 
+    filter(.data$achieved == 0) %>%
     mutate(
       rec = case_when(
-        .data$percent > min_percent_ul ~ 1,
-        .data$percent <= min_percent_ul ~ 0,
+        .data$percent >= min_ach_percent ~ 1,
+        .data$percent < min_ach_percent ~ 0,
         TRUE ~ 999
       )
     ) %>% 
@@ -313,9 +280,6 @@ list_game_rec <- reactive({
     formatStyle(
       'rec',
       target = "row",
-      # color = "black",
-      # color = styleEqual(c(0, 1),c("black", "black")),
-      # backgroundColor = styleEqual(c(0, 1), c('pink', 'lightgreen'))
       backgroundColor = styleEqual(c(0, 1), c('#ffe6e6', '#ccffcc'))
 )
 
@@ -334,6 +298,7 @@ renderText({
   unlocked_p <- glue("{round((unlocked_num/unlocked_denom)*100, 1)}% ({unlocked_num}/{unlocked_denom})")
   unlocked_p
 
+  # value boxes don't show up in sidebars
   #   valueBox(
   #   value = unlocked_p,
   #   caption = glue(""),
@@ -345,11 +310,12 @@ renderText({
 
 ------------------------------------------------
 
+<br/>
+
 The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:
 
 ```{r}
 renderDataTable({
-# renderPrint({
   list_games_ex()
 })
 ```
@@ -358,7 +324,7 @@ renderDataTable({
 Row {data-height=550}
 -----------------------------------------------------------------------
 
-### Timestamp of user's unlocked achievements by global percentage achieved
+### Unlocked achievements by global percentage achieved
 ```{r}
 renderPlotly ({
   ggplotly(ggplot(df_plot_f() %>%
@@ -379,8 +345,7 @@ renderPlotly ({
     xlab("Date user unlocked achievement") +
     ylab("% of Steam users with achievement") +
     labs(color="") +
-    # ggtitle(glue()) +
-    # scale_color_viridis(discrete = TRUE, option = "H") +
+    scale_color_viridis(discrete = TRUE, option = "H") +
     labs(""),
     tooltip = "text"
   )
@@ -391,7 +356,7 @@ renderPlotly ({
 Row {data-height=450}
 -----------------------------------------------------------------------
 
-### Achievements to aim for next
+### Locked achievements to aim for next
 
 ```{r}
 DT::renderDataTable({
