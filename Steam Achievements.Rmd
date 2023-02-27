@@ -114,7 +114,7 @@ get_game_df <- function(game_id, name, key = user_key, steam_id, format = "JSON"
 ```
 
 ```{r}
-get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 5){
+get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 1){
   
   # first get user's game data
   user_games <- get_user_games(steam_id, key, format)
@@ -129,7 +129,7 @@ get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 
   
   
   
-  # remove games where user hasn't unlocked at least 5 achievements
+  # remove games where user hasn't unlocked at least 1 achievement
   df_final <- df_a %>%
     # filter(unlocktime_dt > "2020-01-01"| is.na(unlocktime_dt)) %>%
     group_by(game) %>%
@@ -162,16 +162,19 @@ selectInput("steam_id", label = "Select Steam User:",
 ```
 
 ```{r}
+# get list of all games in order to display games that were excluded from the dashboard
 df_all_games <- reactive({
   df <- get_user_games(steam_id = input$steam_id, key = user_key) #%>% pull(name) %>% unique()
   df
 })
 
+# get steam data for scatterplot
 df_plot <- reactive({
   df <- get_steam_data(steam_id = input$steam_id, key = user_key)
   df
 })
 
+# list of games to include in the dropdown menu
 list_s_games <- reactive({
   list1 <- df_plot() %>% pull(.data$game) %>% unique()
   list1
@@ -179,6 +182,7 @@ list_s_games <- reactive({
 ```
 
 ```{r}
+# update game drop down menu based on steam user id input
 select_input_r <- reactive({
   selectizeInput(inputId = "game_id",
             label = "Select Game(s)",
@@ -204,6 +208,7 @@ df_plot_f <- reactive({
 ```
 
 ```{r}
+# get list of games that are excluded from the dashboard
 list_games_ex <- reactive({
   
   list_games_inc <- df_plot_f() %>% pull(game) %>% unique()
@@ -225,9 +230,10 @@ list_games_ex <- reactive({
 ```
 
 ```{r}
+# label achievements based on difficulty level
 list_game_rec <- reactive({
   
-  # get most difficult achievement per game
+  # get most difficult achievement unlocked per game
   min_ach_per_game <- df_plot_f() %>% 
     filter(.data$achieved == 1) %>% 
     group_by(.data$game) %>% 
@@ -330,7 +336,7 @@ renderPlotly ({
   ggplotly(ggplot(df_plot_f() %>%
                     filter(
                       achieved == 1# & # only plot achievements that have been unlocked
-                      # .data$unlocktime_dt >= input$date_range[1] &
+                      # .data$unlocktime_dt >= input$date_range[1] & # decided not to include date range input...
                       # .data$unlocktime_dt <= input$date_range[2]
                       ), 
                   aes(x = .data$unlocktime_dt, 
