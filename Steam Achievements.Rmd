@@ -261,7 +261,7 @@ list_game_rec <- reactive({
     transmute(
       Game = game,
       Achievement = apiname,
-      `% of users with achievement` = glue("{round(percent, 2)}%"),
+      `% of users with achievement` = round(percent, 2),
       rec,
       percent
     )
