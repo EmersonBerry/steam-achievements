@@ -2,12 +2,6 @@
 title: "Steam Achievements Tracker"
 output:
   flexdashboard::flex_dashboard:
-    theme:
-      primary: "#336699"
-      base_font:
-        google: Prompt
-      code_font:
-        google: JetBrains Mono
     orientation: rows
 runtime: shiny
 ---
@@ -34,7 +28,7 @@ library(shiny)
 # https://steamapi.xpaw.me/#
 # https://partner.steamgames.com/doc/features/achievements#global_stats
 
-user_key <- read.table("my_key.txt") %>% unlist()
+user_key <- read.table("C:/Users/berry/Documents/R Projects/steam-achievements/my_key.txt") %>% unlist()
 
 ```
 
@@ -134,7 +128,8 @@ get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 
     # filter(unlocktime_dt > "2020-01-01"| is.na(unlocktime_dt)) %>%
     group_by(game) %>%
     mutate(
-      total_ach = sum(achieved)
+      total_ach = sum(achieved),
+      percent = as.numeric(percent)
     ) %>%
     ungroup() %>%
     filter(total_ach > min_ach) %>%
@@ -160,6 +155,7 @@ selectInput("steam_id", label = "Select Steam User:",
 #   end = today()
 # )
 ```
+
 
 ```{r}
 # get list of all games in order to display games that were excluded from the dashboard
