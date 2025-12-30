@@ -7,6 +7,13 @@
 #    https://shiny.posit.co/
 #
 
+
+# updating thoughts
+# 1. Clean up formatting, make it look nicer
+# 2. add inputs for key and steam ID so this is usable generally
+# 3. figure out how to host it 
+# 4. get friends with steam to try it out
+
 library(shiny)
 library(rjson)
 library(data.table)
