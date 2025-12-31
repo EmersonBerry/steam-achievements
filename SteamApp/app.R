@@ -2,10 +2,10 @@
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
+# In order to run this app, the user must obtain a Steam API key here: https://steamcommunity.com/dev
+# The app defaults to showing the app author's personal Steam library data. Users may find their own
+# steam id to display their own data here: https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC
+# 
 
 library(shiny)
 library(rjson)
@@ -21,13 +21,10 @@ library(plotly)
 library(flexdashboard)
 library(shinyalert)
 
-
 # helpful steam API documentation
 # https://developer.valvesoftware.com/wiki/Steam_Web_API
 # https://steamapi.xpaw.me/#
 # https://partner.steamgames.com/doc/features/achievements#global_stats
-
-# user_key <- read.table("C:/Users/berry/Documents/R Projects/steam-achievements/my_key.txt") %>% unlist()
 
 source("steam_functions.R")
 
@@ -40,13 +37,12 @@ ui <- fluidPage(
 
     sidebarLayout(
         sidebarPanel(
-            # selectInput("steam_id", label = "Select Steam User:",
-            #             choices = c("Emerson" = "76561198041360303", "Sade" = "76561198084220408")),
-            textInput("steam_id", label = "Enter Steam ID:", value = "76561198041360303"),
+            textInput("steam_id", label = "Enter Steam ID:", value = "76561198041360303"), # default to my steam id
+            p("For help finding your personal Steam ID: https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC"),
             uiOutput("select_input_r"),
             textOutput("perc_unlock_txt"),
             HTML("<br>"),
-            textOutput("excl_text"),
+            p("The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:"),
             dataTableOutput("excluded_games_txt"),
             
             width = 4
@@ -77,7 +73,7 @@ server <- function(input, output) {
     df_all_games <- reactive({
       req(input$user_key)
       req(input$steam_id)
-      df <- get_user_games(steam_id = input$steam_id, key = input$user_key) #%>% pull(name) %>% unique()
+      df <- get_user_games(steam_id = input$steam_id, key = input$user_key) 
       df
     })
     
@@ -92,7 +88,6 @@ server <- function(input, output) {
     # list of games to include in the dropdown menu
     list_s_games <- reactive({
       req(input$user_key)
-      # req(input$steam_id)
       list1 <- df_plot() %>% pull(.data$game) %>% unique() %>% sort()
       list1
     })
@@ -107,7 +102,6 @@ server <- function(input, output) {
     
     df_plot_f <- reactive({
       req(input$user_key)
-      # req(input$steam_id)
       if("All" %in% input$game_id){
         df_f <- df_plot()
       }else{
@@ -118,8 +112,7 @@ server <- function(input, output) {
     # get list of games that are excluded from the dashboard
     list_games_ex <- reactive({
       req(input$user_key)
-      # req(input$steam_id)
-      
+
       list_games_inc <- df_plot_f() %>% pull(game) %>% unique()
       
       list1 <- df_all_games() %>%
@@ -142,7 +135,6 @@ server <- function(input, output) {
     # label achievements based on difficulty level
     list_game_rec <- reactive({
       req(input$user_key)
-      # req(input$steam_id)
       # get most difficult achievement unlocked per game
       min_ach_per_game <- df_plot_f() %>% 
         filter(.data$achieved == 1) %>% 
@@ -192,7 +184,6 @@ server <- function(input, output) {
             #info = FALSE,
             dom = "tip"
           )
-          # caption = "Achievements to aim for next"
         ) %>% 
         formatStyle(
           'rec',
@@ -214,20 +205,14 @@ server <- function(input, output) {
       unlocked_p
     })
     
-    output$excl_text <- renderText({
-      "The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:"
-    })
-    
     output$excluded_games_txt <- renderDataTable({
       req(input$user_key)
       list_games_ex()
     })
-    #The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:
-    
+
     
     output$plot_unlocked <- renderPlotly ({
       req(input$user_key)
-      # req(input$steam_id)
       ggplotly(ggplot(df_plot_f() %>%
                         filter(
                           achieved == 1# & # only plot achievements that have been unlocked
@@ -243,7 +228,6 @@ server <- function(input, output) {
                               % with achievement: {round(.data$percent)}%"))) + 
                  geom_point() +
                  theme_minimal() +
-                 # ggtitle("Unlocked achievements by global percentage achieved") +
                  xlab("Date user unlocked achievement") +
                  ylab("% of Steam users with achievement") +
                  labs(color="") +
@@ -257,7 +241,6 @@ server <- function(input, output) {
     ### Locked achievements to aim for next
     output$rec_table <- DT::renderDataTable({
       req(input$user_key)
-      # req(input$steam_id)
       list_game_rec()
     })
     
