@@ -7,13 +7,6 @@
 #    https://shiny.posit.co/
 #
 
-
-# updating thoughts
-# 1. Clean up formatting, make it look nicer
-# 2. add inputs for key and steam ID so this is usable generally
-# 3. figure out how to host it 
-# 4. get friends with steam to try it out
-
 library(shiny)
 library(rjson)
 library(data.table)
@@ -26,117 +19,17 @@ library(ggplot2)
 library(viridis)
 library(plotly)
 library(flexdashboard)
-library(shiny)
+library(shinyalert)
+
 
 # helpful steam API documentation
 # https://developer.valvesoftware.com/wiki/Steam_Web_API
 # https://steamapi.xpaw.me/#
 # https://partner.steamgames.com/doc/features/achievements#global_stats
 
-user_key <- read.table("C:/Users/berry/Documents/R Projects/steam-achievements/my_key.txt") %>% unlist()
+# user_key <- read.table("C:/Users/berry/Documents/R Projects/steam-achievements/my_key.txt") %>% unlist()
 
-# get info on local games
-get_user_games <- function(steam_id, key = user_key, format = "JSON"){
-  
-  user_games_json <- glue("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={key}&steamid={steam_id}&format={format}&include_appinfo=1") %>% 
-    readLines() %>% 
-    fromJSON() %>% 
-    suppressWarnings()
-  
-  user_games_df <- rbindlist(user_games_json$response$games, fill = TRUE)
-  
-  inputs <- user_games_df %>% 
-    select(
-      game_id = appid,
-      name
-    ) %>% 
-    unique() 
-  
-  inputs
-}
-
-# function to take in game id and output a df with global achievement percents and local achievement date times
-get_game_df <- function(game_id, name, key = user_key, steam_id, format = "JSON"){
-  # if the game tracks achievements, combine local and global data and format
-  tryCatch({
-    # get user steam achievements for one game
-    local_json <- glue("https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key={key}&steamid={steam_id}&appid={game_id}") %>% 
-      readLines() %>% 
-      fromJSON() %>% 
-      suppressWarnings()
-    
-    # get global achievement info for one game
-    global_json <- glue("http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid={game_id}&format={format}") %>% 
-      readLines() %>% 
-      fromJSON() %>% 
-      suppressWarnings()
-    
-    local_raw <- rbindlist(local_json$playerstats$achievements, fill = TRUE)
-    global_raw <- rbindlist(global_json$achievementpercentages$achievements, fill = TRUE)
-    
-    local_df <- local_raw %>% 
-      mutate(
-        unlocktime_dt = 
-          case_when(
-            unlocktime == 0 ~ NA_Date_,
-            unlocktime != 0 ~ as_datetime(unlocktime)
-          )) 
-    
-    final_df <- local_df %>%
-      full_join(global_raw, by = c("apiname" = "name")) %>% 
-      mutate(
-        game = name
-      ) %>% 
-      group_by(game) %>% 
-      mutate(
-        max_ach_dt = max(unlocktime_dt, na.rm = TRUE)
-      ) %>% 
-      ungroup() %>% 
-      mutate(
-        unlocktime_dt = 
-          case_when(
-            is.na(unlocktime_dt) ~ max_ach_dt + 1,
-            !is.na(unlocktime_dt) ~ unlocktime_dt
-          )
-      )
-    
-  },
-  error = function(e) print("")) #glue("{name} does not track achievements on Steam")))
-  
-  if(exists("final_df")){return(final_df)}
-}
-
-get_steam_data <- function(steam_id, key = user_key, format = "JSON", min_ach = 1){
-  
-  # first get user's game data
-  user_games <- get_user_games(steam_id, key, format)
-  
-  # pull info for each game in users list, and put it all together in a df
-  df_a <- pmap(.l = list(game_id = user_games$game_id, 
-                         name = user_games$name, 
-                         key = key, 
-                         steam_id = steam_id), 
-               .f = get_game_df, .progress = TRUE) %>% 
-    rbindlist()
-  
-  
-  
-  # remove games where user hasn't unlocked at least 1 achievement
-  df_final <- df_a %>%
-    # filter(unlocktime_dt > "2020-01-01"| is.na(unlocktime_dt)) %>%
-    group_by(game) %>%
-    mutate(
-      total_ach = sum(achieved),
-      percent = as.numeric(percent)
-    ) %>%
-    ungroup() %>%
-    filter(total_ach > min_ach) %>%
-    select(
-      -total_ach
-    )
-  
-  df_final
-}
+source("steam_functions.R")
 
 ########################################################################################################################
 
@@ -147,8 +40,9 @@ ui <- fluidPage(
 
     sidebarLayout(
         sidebarPanel(
-            selectInput("steam_id", label = "Select Steam User:",
-                        choices = c("Emerson" = "76561198041360303", "Sade" = "76561198084220408")),
+            # selectInput("steam_id", label = "Select Steam User:",
+            #             choices = c("Emerson" = "76561198041360303", "Sade" = "76561198084220408")),
+            textInput("steam_id", label = "Enter Steam ID:", value = "76561198041360303"),
             uiOutput("select_input_r"),
             textOutput("perc_unlock_txt"),
             HTML("<br>"),
@@ -170,22 +64,36 @@ ui <- fluidPage(
 )
 
 server <- function(input, output) {
-    
+  
+  shinyalert(
+      html = TRUE,
+      text = tagList(
+        textInput(inputId = "user_key", label = "Get your steam key (https://steamcommunity.com/dev) then enter it here:")
+      )
+    )
+  
+
     # get list of all games in order to display games that were excluded from the dashboard
     df_all_games <- reactive({
-      df <- get_user_games(steam_id = input$steam_id, key = user_key) #%>% pull(name) %>% unique()
+      req(input$user_key)
+      req(input$steam_id)
+      df <- get_user_games(steam_id = input$steam_id, key = input$user_key) #%>% pull(name) %>% unique()
       df
     })
     
     # get steam data for scatterplot
     df_plot <- reactive({
-      df <- get_steam_data(steam_id = input$steam_id, key = user_key)
+      req(input$user_key)
+      req(input$steam_id)
+      df <- get_steam_data(steam_id = input$steam_id, key = input$user_key)
       df
     })
     
     # list of games to include in the dropdown menu
     list_s_games <- reactive({
-      list1 <- df_plot() %>% pull(.data$game) %>% unique()
+      req(input$user_key)
+      # req(input$steam_id)
+      list1 <- df_plot() %>% pull(.data$game) %>% unique() %>% sort()
       list1
     })
     
@@ -198,6 +106,8 @@ server <- function(input, output) {
     })
     
     df_plot_f <- reactive({
+      req(input$user_key)
+      # req(input$steam_id)
       if("All" %in% input$game_id){
         df_f <- df_plot()
       }else{
@@ -207,6 +117,8 @@ server <- function(input, output) {
     
     # get list of games that are excluded from the dashboard
     list_games_ex <- reactive({
+      req(input$user_key)
+      # req(input$steam_id)
       
       list_games_inc <- df_plot_f() %>% pull(game) %>% unique()
       
@@ -215,11 +127,13 @@ server <- function(input, output) {
           !(.data$name %in% list_games_inc)
         ) %>%
         select(
-          `Games Excluded` = .data$name) %>%
+          `Games Excluded` = .data$name) %>% 
         DT::datatable(
-          options = list(dom = 't', columnDefs = list(list(
-            targets = 1, searchable = FALSE
-          )))
+          options = 
+            list(dom = 't', 
+                 columnDefs = list(list(targets = 1, searchable = FALSE)),
+                 order = list(1, 'asc')
+                 )
         )
       
       list1
@@ -227,7 +141,8 @@ server <- function(input, output) {
     
     # label achievements based on difficulty level
     list_game_rec <- reactive({
-      
+      req(input$user_key)
+      # req(input$steam_id)
       # get most difficult achievement unlocked per game
       min_ach_per_game <- df_plot_f() %>% 
         filter(.data$achieved == 1) %>% 
@@ -276,7 +191,7 @@ server <- function(input, output) {
             pageLength = 10,
             #info = FALSE,
             dom = "tip"
-          ),
+          )
           # caption = "Achievements to aim for next"
         ) %>% 
         formatStyle(
@@ -291,6 +206,8 @@ server <- function(input, output) {
     
     #% Achievements Unlocked:
     output$perc_unlock_txt <- renderText({
+      req(input$user_key)
+      req(input$steam_id)
       unlocked_num <- sum(df_plot_f()$achieved)
       unlocked_denom <- nrow(df_plot_f())
       unlocked_p <- glue("Achievements Unlocked: {round((unlocked_num/unlocked_denom)*100, 1)}% ({unlocked_num}/{unlocked_denom})")
@@ -302,12 +219,15 @@ server <- function(input, output) {
     })
     
     output$excluded_games_txt <- renderDataTable({
+      req(input$user_key)
       list_games_ex()
     })
     #The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:
     
     
     output$plot_unlocked <- renderPlotly ({
+      req(input$user_key)
+      # req(input$steam_id)
       ggplotly(ggplot(df_plot_f() %>%
                         filter(
                           achieved == 1# & # only plot achievements that have been unlocked
@@ -336,6 +256,8 @@ server <- function(input, output) {
     
     ### Locked achievements to aim for next
     output$rec_table <- DT::renderDataTable({
+      req(input$user_key)
+      # req(input$steam_id)
       list_game_rec()
     })
     
