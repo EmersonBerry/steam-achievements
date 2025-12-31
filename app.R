@@ -68,7 +68,8 @@ server <- function(input, output) {
   shinyalert(
       html = TRUE,
       text = tagList(
-        textInput(inputId = "user_key", label = "Get your steam key (https://steamcommunity.com/dev) then enter it here:")
+        textInput(inputId = "user_key", label = "Enter your Steam API Key: "),
+        HTML("<a href='https://steamcommunity.com/dev'>Click here for help</a>")
       )
     )
 
