@@ -38,10 +38,13 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             textInput("steam_id", label = "Enter Steam ID:", value = "76561198041360303"), # default to my steam id
-            p("For help finding your personal Steam ID: https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC"),
+            HTML("<a href='https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC'>Help finding Steam ID</a>"),
+            hr(),
             uiOutput("select_input_r"),
             textOutput("perc_unlock_txt"),
             HTML("<br>"),
+            hr(),
+            HTML("<b>Excluded Games:</b>"),
             p("The following games are present in the user's Steam library, but either do not track achievements through Steam, or the user does not have any achievements unlocked for the game yet:"),
             dataTableOutput("excluded_games_txt"),
             
@@ -67,7 +70,6 @@ server <- function(input, output) {
         textInput(inputId = "user_key", label = "Get your steam key (https://steamcommunity.com/dev) then enter it here:")
       )
     )
-  
 
     # get list of all games in order to display games that were excluded from the dashboard
     df_all_games <- reactive({
@@ -122,10 +124,13 @@ server <- function(input, output) {
         select(
           `Games Excluded` = .data$name) %>% 
         DT::datatable(
+          colnames = "",
+          rownames = "",
           options = 
-            list(dom = 't', 
-                 columnDefs = list(list(targets = 1, searchable = FALSE)),
-                 order = list(1, 'asc')
+            list(dom = 'tp', 
+                 # columnDefs = list(list(targets = 1, searchable = FALSE)),
+                 order = list(1, 'asc'),
+                 pageLength = 10
                  )
         )
       
