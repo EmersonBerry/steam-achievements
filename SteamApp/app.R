@@ -7,6 +7,7 @@
 # steam id to display their own data here: https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC
 # 
 
+library(rsconnect)
 library(shiny)
 library(rjson)
 library(data.table)
